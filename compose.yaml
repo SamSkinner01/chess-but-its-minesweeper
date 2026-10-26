@@ -19,8 +19,10 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    # Only 443: Cloudflare in Full (strict) mode connects to the origin over HTTPS.
+    # Cloudflare connects with the visitor's scheme, so plain-http visitors arrive on 80,
+    # where Caddy redirects them to https.
     ports:
+      - "80:80"
       - "443:443"
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}

@@ -209,7 +209,7 @@ ssh root@DROPLET_IP 'cat >> /home/deploy/.ssh/authorized_keys && chown deploy:de
 
 **5. Deploy**: push to `main`, or run the workflow from the Actions tab.
 
-Optional hardening: allow port 443 only from [Cloudflare's IP ranges](https://www.cloudflare.com/ips/)
+Optional hardening: allow ports 80 and 443 only from [Cloudflare's IP ranges](https://www.cloudflare.com/ips/)
 with a DigitalOcean Cloud Firewall. `ufw` can't do this, because Docker-published ports bypass it.
 
 ### Any Docker host
