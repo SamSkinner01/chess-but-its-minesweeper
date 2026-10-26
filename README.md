@@ -161,6 +161,57 @@ fly scale count 1                             # in-memory state: exactly one mac
 fly deploy
 ```
 
+### DigitalOcean droplet (GitHub Actions + Cloudflare)
+
+`.github/workflows/deploy.yml` deploys every push to `main`. It runs the typecheck and tests, builds the
+Docker image, streams it to the droplet over SSH (`docker save | docker load`, no registry), and restarts
+the stack in `compose.yaml`. Caddy terminates HTTPS in front of the app with a Cloudflare Origin
+Certificate. A deploy restarts the process, which ends any games in progress.
+
+**1. Droplet** (Ubuntu, once, as root):
+
+```bash
+curl -fsSL https://get.docker.com | sh
+adduser --disabled-password --gecos "" deploy
+usermod -aG docker deploy
+install -d -o deploy -g deploy -m 700 /home/deploy/.ssh
+install -d -o deploy -g deploy /opt/minefield-chess /opt/minefield-chess/certs
+echo "DOMAIN=chess.example.com" > /opt/minefield-chess/.env
+```
+
+Membership in the `docker` group is root-equivalent, so guard the deploy key like a root key.
+
+**2. Deploy key** (on your machine):
+
+```bash
+ssh-keygen -t ed25519 -N "" -C github-deploy -f ~/.ssh/minefield_deploy
+ssh root@DROPLET_IP 'cat >> /home/deploy/.ssh/authorized_keys && chown deploy:deploy /home/deploy/.ssh/authorized_keys && chmod 600 /home/deploy/.ssh/authorized_keys' < ~/.ssh/minefield_deploy.pub
+```
+
+**3. GitHub secrets** (Settings > Secrets and variables > Actions):
+
+| Secret            | Value                                     |
+| ----------------- | ----------------------------------------- |
+| `SSH_HOST`        | the droplet's IP                          |
+| `SSH_USER`        | `deploy`                                  |
+| `SSH_PRIVATE_KEY` | contents of `~/.ssh/minefield_deploy`     |
+| `SSH_KNOWN_HOSTS` | output of `ssh-keyscan DROPLET_IP`        |
+
+**4. Cloudflare:**
+
+1. **DNS > Records > Add record**: type `A`, name `chess` (or `@` for the bare domain), IPv4 = the
+   droplet's IP, proxy status **Proxied** (orange cloud).
+2. **SSL/TLS > Overview**: set the encryption mode to **Full (strict)**.
+3. **SSL/TLS > Origin Server > Create Certificate** (the defaults cover `example.com` and `*.example.com`
+   for 15 years). On the droplet, save the certificate as `/opt/minefield-chess/certs/origin.pem` and the
+   private key as `/opt/minefield-chess/certs/origin.key` (`chmod 600`). Cloudflare shows the key only once.
+4. **Network > WebSockets** is on by default. Leave it on.
+
+**5. Deploy**: push to `main`, or run the workflow from the Actions tab.
+
+Optional hardening: allow port 443 only from [Cloudflare's IP ranges](https://www.cloudflare.com/ips/)
+with a DigitalOcean Cloud Firewall. `ufw` can't do this, because Docker-published ports bypass it.
+
 ### Any Docker host
 
 ```bash

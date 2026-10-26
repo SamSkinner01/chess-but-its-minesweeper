@@ -1,0 +1,35 @@
+# Production stack for a single VPS: the app behind Caddy, which terminates TLS with a
+# Cloudflare Origin Certificate. Expects .env (DOMAIN=...) and certs/ next to this file.
+# See "DigitalOcean VPS" in README.md.
+services:
+  app:
+    image: minefield-chess:latest
+    build: .
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:3000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    # Only 443: Cloudflare in Full (strict) mode connects to the origin over HTTPS.
+    ports:
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

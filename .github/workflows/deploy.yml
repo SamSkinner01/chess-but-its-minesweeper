@@ -1,0 +1,68 @@
+# Tests, builds the Docker image, and ships it to the VPS over SSH (no registry needed).
+# One-time server setup and the required secrets are described under "DigitalOcean VPS" in README.md.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Deploys run one at a time; a push during a deploy waits instead of cancelling it.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      APP_DIR: /opt/minefield-chess
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t minefield-chess:latest .
+
+      - name: Configure SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+          EOF
+
+      - name: Upload image and config
+        run: |
+          docker save minefield-chess:latest | gzip | ssh vps 'gunzip | docker load'
+          scp compose.yaml Caddyfile "vps:$APP_DIR/"
+
+      - name: Restart
+        run: |
+          ssh vps "cd $APP_DIR && { docker compose up -d --wait --wait-timeout 120 || { docker compose logs --tail 100; exit 1; }; } && docker image prune -f"

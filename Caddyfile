@@ -1,0 +1,6 @@
+# DOMAIN comes from .env on the server, e.g. DOMAIN=chess.example.com
+# The certificate is a Cloudflare Origin Certificate; Cloudflare's SSL mode must be Full (strict).
+{$DOMAIN} {
+	tls /certs/origin.pem /certs/origin.key
+	reverse_proxy app:3000
+}
