@@ -1,0 +1,51 @@
+Build a browser-based multiplayer web app called "Minefield Chess": standard chess combined with Minesweeper mechanics.
+
+CORE CONCEPT
+- Two players play regular chess on an 8x8 board.
+- At game start, a number of hidden mines (default 6) are randomly placed on empty squares in ranks 3–6 (the middle of the board), never on starting pieces.
+- Mine locations are hidden from both players.
+
+MINESWEEPER RULES
+- When a piece moves onto a square, that square is "revealed."
+- If the square has a mine, the piece that moved there explodes and is removed (kings that step on a mine lose the game).
+- If no mine, the square shows a number (0–8) for how many adjacent squares contain mines, like Minesweeper. Revealed numbers stay visible for both players for the rest of the game.
+- A revealed 0 auto-reveals its neighboring safe squares (flood fill), like Minesweeper.
+- Players can right-click (or long-press on mobile) an unrevealed square to place a private flag as a note. Flags are only visible to the player who placed them and don't block movement.
+- Captures still work normally; capturing onto a mined square still triggers the mine.
+
+CHESS RULES
+- Full standard rules: legal move validation, check, checkmate, stalemate, castling, en passant, pawn promotion.
+- A king may not move onto a flagged square only if the player chooses; otherwise flags are just notes.
+- Win conditions: checkmate, opponent's king explodes on a mine, or resignation.
+
+ONLINE MULTIPLAYER
+- Create a game → get a shareable link/room code. Second player joins via link.
+- Real-time move sync using WebSockets (e.g., Socket.IO).
+- The server is authoritative: it stores mine positions, validates moves, and only sends revealed info to clients (so players can't cheat by inspecting network traffic).
+- Show whose turn it is, a move history list, and captured pieces.
+- Handle reconnects: if a player refreshes, they rejoin the same game.
+- Optional: spectator mode, rematch button, simple in-game chat.
+
+SETTINGS (chosen by game creator)
+- Number of mines (0–12)
+- Time control (none, 5 min, 10 min)
+- Mine zone: middle ranks only vs. anywhere empty
+
+UI / DESIGN
+- Clean, modern board with clear piece icons (use free SVG chess pieces, e.g., cburnett set).
+- Unrevealed squares look slightly raised/tiled; revealed squares show the mine-count number in classic Minesweeper colors (1 blue, 2 green, 3 red, etc.).
+- Explosion animation and sound when a mine goes off.
+- Highlight legal moves on piece select; highlight last move.
+- Responsive: works on desktop and mobile.
+
+TECH STACK
+- Frontend: React + TypeScript (or plain HTML/JS if simpler)
+- Backend: Node.js + Express + Socket.IO
+- Use chess.js for move validation, extended with the mine logic
+- In-memory game storage is fine to start; structure code so a database (Redis/Postgres) can be added later
+- Include a README with setup steps and how to deploy (e.g., Render, Railway, or Fly.io)
+
+DELIVERABLES
+- Complete working code, organized into folders
+- Instructions to run locally with one command
+- Brief explanation of the mine logic and how hidden information is protected server-side
